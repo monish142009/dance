@@ -1,0 +1,8 @@
+{
+  "name": "Kuchipudi Dance Academy",
+  "description": "An elegant portal for Kuchipudi dance school with class schedules, student registration, instructor biography, a rich media gallery, and a secure admin panel for daily photo and performance management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
