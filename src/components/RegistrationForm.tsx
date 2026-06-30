@@ -4,16 +4,24 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User, Phone, Mail, Award, Calendar, BookOpen, Clock, CheckCircle, Sparkles, ShieldCheck } from 'lucide-react';
+import { User, Phone, Mail, Award, Calendar, BookOpen, Clock, CheckCircle, Sparkles, ShieldCheck, Lock, ArrowRight } from 'lucide-react';
 import { ClassSchedule, Registration } from '../types';
 
 interface RegistrationFormProps {
   schedules: ClassSchedule[];
   preSelectedClassId?: string;
   onRegisterSubmit: (registration: Omit<Registration, 'id' | 'registrationDate' | 'status'>) => void;
+  currentStudent: { id: string; name: string; email: string; phone: string } | null;
+  onNavigateToLogin: () => void;
 }
 
-export default function RegistrationForm({ schedules, preSelectedClassId, onRegisterSubmit }: RegistrationFormProps) {
+export default function RegistrationForm({ 
+  schedules, 
+  preSelectedClassId, 
+  onRegisterSubmit,
+  currentStudent,
+  onNavigateToLogin
+}: RegistrationFormProps) {
   const [formData, setFormData] = useState({
     studentName: '',
     age: '',
@@ -29,6 +37,18 @@ export default function RegistrationForm({ schedules, preSelectedClassId, onRegi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [createdRecord, setCreatedRecord] = useState<any>(null);
+
+  // Auto pre-fill with student account profile info when logged in
+  useEffect(() => {
+    if (currentStudent) {
+      setFormData(prev => ({
+        ...prev,
+        studentName: prev.studentName || currentStudent.name,
+        email: prev.email || currentStudent.email,
+        phone: prev.phone || currentStudent.phone
+      }));
+    }
+  }, [currentStudent]);
 
   useEffect(() => {
     if (preSelectedClassId) {
@@ -75,6 +95,10 @@ export default function RegistrationForm({ schedules, preSelectedClassId, onRegi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentStudent) {
+      setError('auth', 'You must be logged in to submit this form.');
+      return;
+    }
     if (!validate()) return;
 
     setIsSubmitting(true);
@@ -105,18 +129,23 @@ export default function RegistrationForm({ schedules, preSelectedClassId, onRegi
       setIsSubmitting(false);
       setIsSuccess(true);
       
-      // Reset form
+      // Reset form (keep student credentials filled in)
       setFormData({
-        studentName: '',
+        studentName: currentStudent ? currentStudent.name : '',
         age: '',
         parentName: '',
-        email: '',
-        phone: '',
+        email: currentStudent ? currentStudent.email : '',
+        phone: currentStudent ? currentStudent.phone : '',
         selectedClassId: schedules[0]?.id || '',
         experience: 'None',
         notes: ''
       });
     }, 1200);
+  };
+
+  // Helper setError to display validation/auth logs
+  const setError = (field: string, msg: string) => {
+    setErrors(prev => ({ ...prev, [field]: msg }));
   };
 
   const isMinor = formData.age !== '' && Number(formData.age) < 18;
@@ -141,8 +170,66 @@ export default function RegistrationForm({ schedules, preSelectedClassId, onRegi
             </div>
           </div>
           <p className="text-stone-600 text-lg font-light leading-relaxed">
-            Submit an enrollment inquiry below. Our admissions coordinator will review your profile and contact you within 24 hours to schedule an introductory session.
+            Submit an enrollment inquiry below. Only registered accounts can submit. Our admissions coordinator will review and contact you.
           </p>
+        </div>
+
+        {/* STEPS TIMELINE ROADMAP */}
+        <div className="max-w-4xl mx-auto mb-16 bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+          <div className="text-center mb-6">
+            <h3 className="font-serif text-lg font-bold text-[#9c7a46] flex items-center justify-center space-x-2">
+              <Sparkles className="h-4.5 w-4.5" />
+              <span>Simple 3-Step Enrollment Process</span>
+            </h3>
+            <p className="text-stone-400 text-xs mt-1">Follow these steps to secure your traditional Gurukul placement</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Step 1 */}
+            <div className={`relative p-4 rounded-xl border transition-all ${currentStudent ? 'bg-emerald-50/40 border-emerald-200' : 'bg-amber-50/25 border-[#c5a059]/30'}`}>
+              <div className="flex items-center space-x-3 mb-2">
+                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${currentStudent ? 'bg-emerald-600 text-white' : 'bg-[#c5a059] text-white'}`}>
+                  {currentStudent ? '✓' : '1'}
+                </span>
+                <h4 className="font-serif font-bold text-[#9c7a46] text-sm">Create Account</h4>
+              </div>
+              <p className="text-stone-500 text-xs font-light leading-relaxed">
+                Sign in or register a Student Account. This validates your registration and email updates.
+              </p>
+              {currentStudent && (
+                <span className="absolute top-4 right-4 text-emerald-600 text-[10px] font-bold">Done</span>
+              )}
+            </div>
+
+            {/* Step 2 */}
+            <div className={`relative p-4 rounded-xl border transition-all ${currentStudent && !isSuccess ? 'bg-amber-50/25 border-[#c5a059]/40' : isSuccess ? 'bg-emerald-50/40 border-emerald-200' : 'bg-stone-50 border-stone-200'}`}>
+              <div className="flex items-center space-x-3 mb-2">
+                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isSuccess ? 'bg-emerald-600 text-white' : currentStudent ? 'bg-[#c5a059] text-white' : 'bg-stone-200 text-stone-600'}`}>
+                  {isSuccess ? '✓' : '2'}
+                </span>
+                <h4 className="font-serif font-bold text-[#9c7a46] text-sm">Class Inquiry</h4>
+              </div>
+              <p className="text-stone-500 text-xs font-light leading-relaxed">
+                Fill in student details, age, prior dance training, and pick your target Kuchipudi batch schedule.
+              </p>
+              {isSuccess && (
+                <span className="absolute top-4 right-4 text-emerald-600 text-[10px] font-bold">Done</span>
+              )}
+            </div>
+
+            {/* Step 3 */}
+            <div className={`relative p-4 rounded-xl border transition-all ${isSuccess ? 'bg-amber-50/30 border-[#c5a059]/45' : 'bg-stone-50 border-stone-200'}`}>
+              <div className="flex items-center space-x-3 mb-2">
+                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isSuccess ? 'bg-[#c5a059] text-white' : 'bg-stone-200 text-stone-600'}`}>
+                  3
+                </span>
+                <h4 className="font-serif font-bold text-[#9c7a46] text-sm">Guru Interview</h4>
+              </div>
+              <p className="text-stone-500 text-xs font-light leading-relaxed">
+                Guru Srimayi Devi holds a brief assessment to finalize your placement and schedule trial sessions.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Content Panel Grid */}
@@ -207,15 +294,52 @@ export default function RegistrationForm({ schedules, preSelectedClassId, onRegi
                 <Sparkles className="h-5 w-5 text-[#9c7a46] shrink-0 mt-0.5" />
                 <p className="font-light leading-relaxed">
                   <span className="font-semibold text-[#9c7a46] block mb-0.5">Introductory Class</span>
-                  Your enrollment is non-binding and includes a complimentary 30-minute posture evaluation and trial session.
+                  Your enrollment includes a complimentary 30-minute posture evaluation and trial session.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Right: Registration Form Core (8 Columns) */}
+          {/* Right: Registration Form Core or Login Prompt (8 Columns) */}
           <div className="lg:col-span-8 bg-white border border-stone-200 p-6 sm:p-10 rounded-2xl shadow-sm">
-            {isSuccess ? (
+            {!currentStudent ? (
+              /* RESTRICTED ACCESS LOCK BOX */
+              <div className="text-center py-12 px-4 space-y-6">
+                <div className="bg-amber-50 text-amber-600 p-4 rounded-full inline-block border border-amber-200">
+                  <Lock className="h-10 w-10 text-[#9c7a46]" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-serif text-2xl font-bold text-stone-950">
+                    Authentication Required
+                  </h3>
+                  <p className="text-stone-500 text-sm max-w-md mx-auto leading-relaxed font-light">
+                    To prevent unauthorized form submissions and secure your candidate profile, registration is restricted to authenticated student accounts. 
+                  </p>
+                </div>
+
+                <div className="bg-stone-50 p-6 rounded-xl border border-stone-200 max-w-md mx-auto text-left space-y-3">
+                  <span className="text-[10px] uppercase font-mono font-bold text-[#9c7a46] tracking-wider block bg-[#faf6f0] border border-[#c5a059]/20 px-2 py-0.5 rounded w-fit">
+                    Account benefits
+                  </span>
+                  <ul className="text-xs text-stone-650 space-y-2 list-disc list-inside font-light">
+                    <li>Submit official academy admissions</li>
+                    <li>Secure communications with Guru Srimayi Devi</li>
+                    <li>Pre-fill student info on multiple forms</li>
+                    <li>Verify enrollment status</li>
+                  </ul>
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    onClick={onNavigateToLogin}
+                    className="group relative inline-flex items-center justify-center space-x-2 px-8 py-3 bg-[#c5a059] hover:bg-[#b08b49] text-white text-xs tracking-wider uppercase font-extrabold rounded-lg shadow-md transition-all cursor-pointer"
+                  >
+                    <span>Sign In or Register Account</span>
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+              </div>
+            ) : isSuccess ? (
               <div className="text-center py-10 space-y-6">
                 <div className="bg-emerald-50 text-emerald-600 p-4 rounded-full inline-block border border-emerald-200">
                   <CheckCircle className="h-14 w-14" />
@@ -256,11 +380,11 @@ export default function RegistrationForm({ schedules, preSelectedClassId, onRegi
                   <p className="text-xs text-stone-500 leading-relaxed font-light">
                     1. A confirmation copy of this registration has been sent to <span className="font-medium text-stone-900">{createdRecord?.email}</span>.
                   </p>
-                  <p className="text-xs text-stone-550 leading-relaxed font-light">
+                  <p className="text-xs text-stone-555 leading-relaxed font-light">
                     2. Our administrator will contact you via phone or email to schedule your orientation.
                   </p>
-                  <p className="text-xs text-stone-550 leading-relaxed font-light">
-                    3. On your first day, please wear loose fitting cotton clothes or practice sarees, and bring a water bottle.
+                  <p className="text-xs text-stone-555 leading-relaxed font-light">
+                    3. On your first day, please wear loose fitting cotton clothes and bring a water bottle.
                   </p>
                 </div>
 
@@ -277,11 +401,17 @@ export default function RegistrationForm({ schedules, preSelectedClassId, onRegi
               <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
                 
                 {/* Section titles */}
-                <div>
-                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#9c7a46]">
-                    Admissions Form
-                  </h3>
-                  <p className="text-xs sm:text-sm text-stone-500 font-light mt-1">Fields marked with * are mandatory.</p>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#9c7a46]">
+                      Admissions Form
+                    </h3>
+                    <p className="text-xs sm:text-sm text-stone-500 font-light mt-1">Fields marked with * are mandatory.</p>
+                  </div>
+                  <div className="bg-emerald-50 text-emerald-800 text-[11px] font-medium py-1 px-3 rounded-lg border border-emerald-150 flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span>Submitting as: {currentStudent.name}</span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

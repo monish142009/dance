@@ -20,23 +20,34 @@ import AdminPanel from './components/AdminPanel';
 import { 
   DEFAULT_INSTRUCTOR_PROFILE, 
   DEFAULT_CLASSES, 
-  DEFAULT_GALLERY 
+  DEFAULT_GALLERY,
+  ALL_TEACHERS_PROFILES
 } from './data/kuchipudiData';
-import { ClassSchedule, GalleryItem, Registration } from './types';
+import { ClassSchedule, GalleryItem, Registration, StudentUser, InstructorProfile } from './types';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('home');
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [preSelectedClassId, setPreSelectedClassId] = useState<string>('');
+  const [currentStudent, setCurrentStudent] = useState<StudentUser | null>(null);
 
   // Core Persisted States
   const [schedules, setSchedules] = useState<ClassSchedule[]>([]);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [teachers, setTeachers] = useState<InstructorProfile[]>([]);
 
   // Load from LocalStorage
   useEffect(() => {
     try {
+      const cachedTeachers = localStorage.getItem('kuchipudi_teachers');
+      if (cachedTeachers) {
+        setTeachers(JSON.parse(cachedTeachers));
+      } else {
+        setTeachers(ALL_TEACHERS_PROFILES);
+        localStorage.setItem('kuchipudi_teachers', JSON.stringify(ALL_TEACHERS_PROFILES));
+      }
+
       const cachedSchedules = localStorage.getItem('kuchipudi_schedules');
       if (cachedSchedules) {
         setSchedules(JSON.parse(cachedSchedules));
@@ -64,16 +75,28 @@ export default function App() {
       if (cachedAdmin === 'active') {
         setIsAdmin(true);
       }
+
+      const cachedStudent = localStorage.getItem('kuchipudi_current_student');
+      if (cachedStudent) {
+        setCurrentStudent(JSON.parse(cachedStudent));
+      }
     } catch (err) {
       console.error("Failed to load cached local storage:", err);
       // Fallback
       setSchedules(DEFAULT_CLASSES);
       setGalleryItems(DEFAULT_GALLERY);
       setRegistrations([]);
+      setTeachers(ALL_TEACHERS_PROFILES);
     }
   }, []);
 
   // Save changes to localStorage
+  useEffect(() => {
+    if (teachers.length > 0) {
+      localStorage.setItem('kuchipudi_teachers', JSON.stringify(teachers));
+    }
+  }, [teachers]);
+
   useEffect(() => {
     if (schedules.length > 0) {
       localStorage.setItem('kuchipudi_schedules', JSON.stringify(schedules));
@@ -102,6 +125,20 @@ export default function App() {
     setIsAdmin(false);
     sessionStorage.removeItem('kuchipudi_admin_session');
     if (currentTab === 'admin') {
+      setCurrentTab('home');
+    }
+  };
+
+  const handleStudentLoginSuccess = (student: StudentUser) => {
+    setCurrentStudent(student);
+    localStorage.setItem('kuchipudi_current_student', JSON.stringify(student));
+    setCurrentTab('register');
+  };
+
+  const handleStudentLogout = () => {
+    setCurrentStudent(null);
+    localStorage.removeItem('kuchipudi_current_student');
+    if (currentTab === 'register') {
       setCurrentTab('home');
     }
   };
@@ -140,7 +177,10 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fdfcfb] font-sans antialiased text-stone-850">
+    <div className="min-h-screen flex flex-col bg-[#fdfcfb] kuchipudi-pattern font-sans antialiased text-stone-850">
+      
+      {/* Background Watermark */}
+      <div className="kuchipudi-dancer-bg" />
       
       {/* Academy Navigation Header */}
       <Navbar 
@@ -148,6 +188,8 @@ export default function App() {
         setCurrentTab={setCurrentTab} 
         isAdmin={isAdmin} 
         logout={handleLogout} 
+        currentStudent={currentStudent}
+        studentLogout={handleStudentLogout}
       />
 
       {/* Main Content Area */}
@@ -213,10 +255,10 @@ export default function App() {
                     
                     <div className="aspect-[3/4] bg-white border border-stone-200 p-3 rounded-2xl shadow-lg">
                       <img 
-                        src="https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=800" 
-                        alt="Kuchipudi dance expression posture" 
+                        src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&q=80&w=800" 
+                        alt="Natyakriya Kuchipudi Dance Troupe" 
                         referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover rounded-xl"
+                        className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
                   </div>
@@ -268,7 +310,7 @@ export default function App() {
                   </div>
                   <h3 className="font-serif text-xl font-bold text-[#9c7a46]">Certified Graduation</h3>
                   <p className="text-stone-600 font-light text-sm leading-relaxed">
-                    Structured syllabus levels including Prarambhik, Praveshika, Madhayama, and Kovida culminate in certified diplomas and complete solo performance readiness.
+                    Structured syllabus levels including Prarambhik, Praveshika, Madhyama, and Kovida culminate in certified diplomas and complete solo performance readiness.
                   </p>
                 </div>
 
@@ -508,6 +550,7 @@ export default function App() {
         {/* 2. BIOGRAPHY VIEW */}
         {currentTab === 'biography' && (
           <Biography 
+            teachers={teachers}
             onRegisterClick={() => setCurrentTab('register')} 
           />
         )}
@@ -525,12 +568,17 @@ export default function App() {
             schedules={schedules} 
             preSelectedClassId={preSelectedClassId}
             onRegisterSubmit={handleRegisterSubmit}
+            currentStudent={currentStudent}
+            onNavigateToLogin={() => { setCurrentTab('login'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           />
         )}
 
         {/* 7. PORTAL LOGINS VIEW */}
         {currentTab === 'login' && (
-          <Login onLoginSuccess={handleLoginSuccess} />
+          <Login 
+            onLoginSuccess={handleLoginSuccess} 
+            onStudentLoginSuccess={handleStudentLoginSuccess} 
+          />
         )}
 
         {/* 8. ADMIN CONTROL PANEL VIEW */}
@@ -542,6 +590,8 @@ export default function App() {
             setGalleryItems={setGalleryItems}
             registrations={registrations}
             setRegistrations={setRegistrations}
+            teachers={teachers}
+            setTeachers={setTeachers}
           />
         )}
 

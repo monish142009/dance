@@ -9,13 +9,14 @@ import { InstructorProfile } from '../types';
 import { ALL_TEACHERS_PROFILES } from '../data/kuchipudiData';
 
 interface BiographyProps {
+  teachers?: InstructorProfile[];
   profile?: InstructorProfile; // Optional fallback
   onRegisterClick: () => void;
 }
 
-export default function Biography({ onRegisterClick }: BiographyProps) {
+export default function Biography({ teachers = ALL_TEACHERS_PROFILES, onRegisterClick }: BiographyProps) {
   const [activeTeacherIdx, setActiveTeacherIdx] = useState<number>(0);
-  const currentProfile = ALL_TEACHERS_PROFILES[activeTeacherIdx];
+  const currentProfile = teachers[activeTeacherIdx] || teachers[0] || ALL_TEACHERS_PROFILES[0];
 
   return (
     <div className="bg-[#faf9f6] py-12 sm:py-16 md:py-20 text-stone-800">
@@ -42,7 +43,7 @@ export default function Biography({ onRegisterClick }: BiographyProps) {
         {/* Teacher Selection Tabs */}
         <div className="max-w-4xl mx-auto mb-16">
           <div className="bg-white border border-stone-200 p-2.5 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-2 shadow-sm">
-            {ALL_TEACHERS_PROFILES.map((teacher, idx) => (
+            {teachers.map((teacher, idx) => (
               <button
                 key={teacher.name}
                 onClick={() => setActiveTeacherIdx(idx)}

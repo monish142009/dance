@@ -144,7 +144,7 @@ export const DEFAULT_CLASSES: ClassSchedule[] = [
   },
   {
     id: "class-3",
-    className: "Madhayama (Advanced Classical Recitals)",
+    className: "Madhyama (Advanced Classical Recitals)",
     level: "Advanced",
     ageGroup: "Experienced Dancers",
     instructor: "Guru Srimayi Devi",

@@ -51,3 +51,12 @@ export interface InstructorProfile {
   awards: { year: string; title: string; organization: string }[];
   imageUrl: string;
 }
+
+export interface StudentUser {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  joinedDate: string;
+}
+

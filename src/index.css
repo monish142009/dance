@@ -24,3 +24,37 @@
   background: #c5a059;
 }
 
+/* Classical Indian Temple Weaving / Mandala Pattern Background */
+.kuchipudi-pattern {
+  position: relative;
+  background-color: #fdfcfb;
+}
+
+.kuchipudi-pattern::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(rgba(197, 160, 89, 0.04) 1.5px, transparent 1.5px),
+    linear-gradient(to right, rgba(197, 160, 89, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(197, 160, 89, 0.02) 1px, transparent 1px);
+  background-size: 24px 24px, 48px 48px, 48px 48px;
+  background-position: center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Beautiful Classical Kuchipudi Dancer Watermark Background */
+.kuchipudi-dancer-bg {
+  position: fixed;
+  inset: 0;
+  background-image: url('https://images.unsplash.com/photo-1615195627275-48660e90c445?auto=format&fit=crop&q=80&w=1200');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.045; /* Ultra-subtle to maintain pristine text contrast and legibility */
+  pointer-events: none;
+  z-index: 0;
+}
+
+
