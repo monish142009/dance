@@ -200,18 +200,18 @@ export default function App() {
           <div className="space-y-16 sm:space-y-24">
             
             {/* Elegant Classical Hero Banner Section */}
-            <section className="relative overflow-hidden bg-[#faf8f5] text-stone-800 border-b border-stone-200/60 py-20 sm:py-32 flex items-center">
+            <section className="relative overflow-hidden bg-[#130d0a] text-stone-100 border-b border-[#291e18] py-20 sm:py-32 flex items-center">
               {/* Background aesthetic highlights */}
-              <div className="absolute inset-0 z-0 opacity-25">
+              <div className="absolute inset-0 z-0 opacity-40">
                 <img 
-                  src="https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&q=80&w=1600" 
+                  src="https://images.unsplash.com/photo-1583089892943-e02e5b017b6a?auto=format&fit=crop&q=80&w=1600" 
                   alt="" 
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover filter brightness-[0.8] contrast-[1.05]"
+                  className="w-full h-full object-cover filter brightness-[0.6] contrast-[1.1]"
                 />
               </div>
               {/* Overlay shading */}
-              <div className="absolute inset-0 bg-gradient-to-r from-[#faf8f5] via-[#faf8f5]/95 to-transparent z-10"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#130d0a] via-[#130d0a]/90 to-transparent z-10"></div>
               
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
                 
@@ -221,12 +221,12 @@ export default function App() {
                     ✦ Traditional Gurukul Parampara ✦
                   </span>
                   
-                  <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-tight text-stone-900">
+                  <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-tight text-white">
                     Natyakriya <br />
-                    <span className="text-[#9c7a46]">Kuchipudi</span> Academy
+                    <span className="text-[#c5a059]">Kuchipudi</span> Academy
                   </h1>
                   
-                  <p className="text-stone-600 text-base sm:text-lg font-light leading-relaxed max-w-xl">
+                  <p className="text-stone-300 text-base sm:text-lg font-light leading-relaxed max-w-xl">
                     Embark on a profound journey of classical Indian expressions, rigorous rhythm synchronization, and divine storytelling. Under the guidance of award-winning Guru Srimayi Devi.
                   </p>
                   
@@ -240,7 +240,7 @@ export default function App() {
                     </button>
                     <button 
                       onClick={() => setCurrentTab('gallery')}
-                      className="px-8 py-3.5 border-2 border-stone-300 hover:bg-stone-50 text-stone-700 font-bold text-sm tracking-wider uppercase rounded-lg transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                      className="px-8 py-3.5 border-2 border-stone-700 hover:bg-white/5 text-stone-200 font-bold text-sm tracking-wider uppercase rounded-lg transition-all flex items-center justify-center space-x-2 cursor-pointer"
                     >
                       <span>View Media Library</span>
                     </button>
@@ -253,10 +253,10 @@ export default function App() {
                     {/* Exquisite golden dashed border frame */}
                     <div className="absolute -inset-4 rounded-2xl border border-dashed border-[#c5a059]/40 -z-10 group-hover:scale-105 transition-transform duration-500"></div>
                     
-                    <div className="aspect-[3/4] bg-white border border-stone-200 p-3 rounded-2xl shadow-lg">
+                    <div className="aspect-[3/4] bg-[#1c1411] border border-stone-850 p-3 rounded-2xl shadow-2xl">
                       <img 
-                        src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&q=80&w=800" 
-                        alt="Natyakriya Kuchipudi Dance Troupe" 
+                        src="https://images.unsplash.com/photo-1583089892943-e02e5b017b6a?auto=format&fit=crop&q=80&w=800" 
+                        alt="Distinguished Kuchipudi Dancer" 
                         referrerPolicy="no-referrer"
                         className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
                       />
