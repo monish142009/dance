@@ -52,6 +52,57 @@ export default function App() {
       setCurrentStudent(JSON.parse(cachedStudent));
     }
 
+    // Migrate old localStorage gallery items to Firestore
+    try {
+      const cachedGallery = localStorage.getItem('kuchipudi_gallery');
+      if (cachedGallery) {
+        const localItems = JSON.parse(cachedGallery) as GalleryItem[];
+        const customLocalItems = localItems.filter(item => 
+          item.id.startsWith('media-custom-') || !DEFAULT_GALLERY.some(def => def.id === item.id)
+        );
+        if (customLocalItems.length > 0) {
+          console.log("Migrating custom local gallery items to Firestore:", customLocalItems);
+          customLocalItems.forEach((item) => {
+            setDoc(doc(db, "gallery", item.id), item)
+              .then(() => {
+                console.log(`Successfully migrated item ${item.id} to Firestore`);
+              })
+              .catch(err => {
+                console.error(`Error migrating item ${item.id} to Firestore:`, err);
+              });
+          });
+          // Remove custom ones from local storage so we do not attempt to migrate them again
+          const remainingLocal = localItems.filter(item => !customLocalItems.some(c => c.id === item.id));
+          localStorage.setItem('kuchipudi_gallery', JSON.stringify(remainingLocal));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to migrate localStorage gallery items:", err);
+    }
+
+    // Migrate old localStorage registrations to Firestore
+    try {
+      const cachedRegs = localStorage.getItem('kuchipudi_registrations');
+      if (cachedRegs) {
+        const localRegs = JSON.parse(cachedRegs) as Registration[];
+        if (localRegs.length > 0) {
+          console.log("Migrating custom local registrations to Firestore:", localRegs);
+          localRegs.forEach((reg) => {
+            setDoc(doc(db, "registrations", reg.id), reg)
+              .then(() => {
+                console.log(`Successfully migrated registration ${reg.id} to Firestore`);
+              })
+              .catch(err => {
+                console.error(`Error migrating registration ${reg.id} to Firestore:`, err);
+              });
+          });
+          localStorage.removeItem('kuchipudi_registrations');
+        }
+      }
+    } catch (err) {
+      console.error("Failed to migrate localStorage registrations:", err);
+    }
+
     // 1. Sync Gallery Items
     const unsubscribeGallery = onSnapshot(collection(db, "gallery"), (snapshot) => {
       if (snapshot.empty) {

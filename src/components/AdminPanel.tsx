@@ -604,6 +604,7 @@ export default function AdminPanel({
     };
 
     setRegistrations(prev => prev.map(r => r.id === editingRegId ? updatedRegData : r));
+    setDoc(doc(db, "registrations", updatedRegData.id), updatedRegData).catch(err => console.error("Error saving registration edit to Firestore:", err));
     triggerNotification('success', 'Student registration details saved.');
     setEditingRegId(null);
     setEditingRegData(null);
@@ -642,6 +643,7 @@ export default function AdminPanel({
     };
 
     setRegistrations(prev => [newReg, ...prev]);
+    setDoc(doc(db, "registrations", newReg.id), newReg).catch(err => console.error("Error saving manual registration to Firestore:", err));
     triggerNotification('success', `Manual student record '${newReg.studentName}' created successfully.`);
     
     // Reset Form
@@ -676,6 +678,7 @@ export default function AdminPanel({
     }
 
     setGalleryItems(prev => prev.map(item => item.id === editingMediaId ? editingMediaData : item));
+    setDoc(doc(db, "gallery", editingMediaData.id), editingMediaData).catch(err => console.error("Error saving media edit to Firestore:", err));
     triggerNotification('success', 'Gallery item updated.');
     setEditingMediaId(null);
     setEditingMediaData(null);
