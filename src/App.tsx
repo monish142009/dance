@@ -25,6 +25,9 @@ import {
 } from './data/kuchipudiData';
 import { ClassSchedule, GalleryItem, Registration, InstructorProfile } from './types';
 
+import { db } from './firebase';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('home');
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -84,12 +87,106 @@ export default function App() {
     localStorage.setItem('kuchipudi_teachers_v2', JSON.stringify(teachers));
   }, [teachers]);
 
-  // Load session states
+  // Load session states and sync with Firebase Firestore in real-time
   useEffect(() => {
     const cachedAdmin = sessionStorage.getItem('kuchipudi_admin_session');
     if (cachedAdmin === 'active') {
       setIsAdmin(true);
     }
+
+    // 1. Sync Gallery Items
+    const unsubscribeGallery = onSnapshot(collection(db, "gallery"), (snapshot) => {
+      if (snapshot.empty) {
+        // Seeding initial default items if empty
+        DEFAULT_GALLERY.forEach((item) => {
+          setDoc(doc(db, "gallery", item.id), item).catch(err => console.error("Error seeding gallery:", err));
+        });
+        setGalleryItems(DEFAULT_GALLERY);
+      } else {
+        const items: GalleryItem[] = [];
+        snapshot.forEach((doc) => {
+          items.push(doc.data() as GalleryItem);
+        });
+        // Sort items so that the newest additions (or based on dynamic ID/timestamp) come first
+        items.sort((a, b) => {
+          const aTime = a.id.startsWith('media-custom-') ? parseInt(a.id.split('-')[2]) : 0;
+          const bTime = b.id.startsWith('media-custom-') ? parseInt(b.id.split('-')[2]) : 0;
+          if (aTime && bTime) {
+            return bTime - aTime; // Newest first
+          }
+          if (aTime) return -1;
+          if (bTime) return 1;
+          return a.id.localeCompare(b.id);
+        });
+        setGalleryItems(items);
+      }
+    }, (error) => {
+      console.error("Gallery snapshot error:", error);
+    });
+
+    // 2. Sync Instructors / Teachers
+    const unsubscribeTeachers = onSnapshot(collection(db, "teachers"), (snapshot) => {
+      if (snapshot.empty) {
+        ALL_TEACHERS_PROFILES.forEach((profile) => {
+          const docId = profile.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+          setDoc(doc(db, "teachers", docId), profile).catch(err => console.error("Error seeding teachers:", err));
+        });
+        setTeachers(ALL_TEACHERS_PROFILES);
+      } else {
+        const items: InstructorProfile[] = [];
+        snapshot.forEach((doc) => {
+          items.push(doc.data() as InstructorProfile);
+        });
+        setTeachers(items);
+      }
+    }, (error) => {
+      console.error("Teachers snapshot error:", error);
+    });
+
+    // 3. Sync Course Schedules
+    const unsubscribeSchedules = onSnapshot(collection(db, "schedules"), (snapshot) => {
+      if (snapshot.empty) {
+        DEFAULT_CLASSES.forEach((course) => {
+          setDoc(doc(db, "schedules", course.id), course).catch(err => console.error("Error seeding schedules:", err));
+        });
+        setSchedules(DEFAULT_CLASSES);
+      } else {
+        const items: ClassSchedule[] = [];
+        snapshot.forEach((doc) => {
+          items.push(doc.data() as ClassSchedule);
+        });
+        items.sort((a, b) => a.id.localeCompare(b.id));
+        setSchedules(items);
+      }
+    }, (error) => {
+      console.error("Schedules snapshot error:", error);
+    });
+
+    // 4. Sync Registrations
+    const unsubscribeRegistrations = onSnapshot(collection(db, "registrations"), (snapshot) => {
+      const items: Registration[] = [];
+      snapshot.forEach((doc) => {
+        items.push(doc.data() as Registration);
+      });
+      items.sort((a, b) => {
+        const aTime = a.id.startsWith('reg-') ? parseInt(a.id.split('-')[1]) : 0;
+        const bTime = b.id.startsWith('reg-') ? parseInt(b.id.split('-')[1]) : 0;
+        if (aTime && bTime) {
+          return bTime - aTime;
+        }
+        return b.registrationDate.localeCompare(a.registrationDate);
+      });
+      setRegistrations(items);
+    }, (error) => {
+      console.error("Registrations snapshot error:", error);
+    });
+
+    return () => {
+      unsubscribeGallery();
+      unsubscribeTeachers();
+      unsubscribeSchedules();
+      unsubscribeRegistrations();
+    };
   }, []);
 
   // Handle Login success
@@ -132,10 +229,15 @@ export default function App() {
 
     setRegistrations(prev => [freshRecord, ...prev]);
 
-    // Automatically increment the registered count in schedules
+    // Save registration record to Firestore
+    setDoc(doc(db, "registrations", freshRecord.id), freshRecord).catch(err => console.error("Error saving registration to Firestore:", err));
+
+    // Automatically increment the registered count in schedules both locally and in Firestore
     setSchedules(prev => prev.map(course => {
       if (course.id === newReg.selectedClassId) {
-        return { ...course, registeredCount: Math.min(course.maxStudents, course.registeredCount + 1) };
+        const updatedCourse = { ...course, registeredCount: Math.min(course.maxStudents, course.registeredCount + 1) };
+        setDoc(doc(db, "schedules", course.id), updatedCourse).catch(err => console.error("Error updating course count in Firestore:", err));
+        return updatedCourse;
       }
       return course;
     }));
