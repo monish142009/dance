@@ -76,6 +76,7 @@ export default function AdminPanel({
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaFilePreview, setMediaFilePreview] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isSavingMedia, setIsSavingMedia] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // EDIT STATE: Registrations
@@ -130,41 +131,60 @@ export default function AdminPanel({
     }, 4000);
   };
 
-  // Helper to compress images on the client side
+  // Helper to compress images on the client side with safety constraints for Firestore
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const max_size = 800; // Optimal display boundary
+          let currentMaxSize = 800;
+          let currentQuality = 0.75;
+          let resultBase64 = '';
 
-          if (width > height) {
-            if (width > max_size) {
-              height *= max_size / width;
-              width = max_size;
+          const attemptCompression = (sizeLimit: number, q: number): string => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > sizeLimit) {
+                height *= sizeLimit / width;
+                width = sizeLimit;
+              }
+            } else {
+              if (height > sizeLimit) {
+                width *= sizeLimit / height;
+                height = sizeLimit;
+              }
             }
-          } else {
-            if (height > max_size) {
-              width *= max_size / height;
-              height = max_size;
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              // Save as JPEG to save space
+              return canvas.toDataURL('image/jpeg', q);
             }
+            return event.target?.result as string;
+          };
+
+          // Try initial compression
+          resultBase64 = attemptCompression(currentMaxSize, currentQuality);
+
+          // If the compressed image is still too large (> 800,000 characters base64, which is roughly 600KB),
+          // iteratively reduce size and quality up to 4 times to guarantee safe Firestore entry
+          let attempts = 0;
+          while (resultBase64.length > 800000 && attempts < 4) {
+            currentMaxSize = Math.floor(currentMaxSize * 0.75);
+            currentQuality = Math.max(0.4, currentQuality - 0.1);
+            resultBase64 = attemptCompression(currentMaxSize, currentQuality);
+            attempts++;
+            console.log(`Re-compressing image: attempt ${attempts}, new size limit ${currentMaxSize}, quality ${currentQuality}, length ${resultBase64.length}`);
           }
 
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            // Save as JPEG with 75% quality to save space
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
-            resolve(compressedBase64);
-          } else {
-            resolve(event.target?.result as string);
-          }
+          resolve(resultBase64);
         };
         img.onerror = () => reject(new Error('Failed to load image source'));
         img.src = event.target?.result as string;
@@ -200,7 +220,7 @@ export default function AdminPanel({
   };
 
   // Media submission
-  const handleAddMedia = (e: React.FormEvent) => {
+  const handleAddMedia = async (e: React.FormEvent) => {
     e.preventDefault();
 
     let finalUrl = '';
@@ -223,16 +243,24 @@ export default function AdminPanel({
       date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     };
 
-    setGalleryItems(prev => [newItem, ...prev]);
-    setDoc(doc(db, "gallery", newItem.id), newItem).catch(err => console.error("Error saving media to Firestore:", err));
-    triggerNotification('success', 'New item added to gallery successfully!');
+    setIsSavingMedia(true);
+    try {
+      await setDoc(doc(db, "gallery", newItem.id), newItem);
+      setGalleryItems(prev => [newItem, ...prev]);
+      triggerNotification('success', 'New item added to gallery successfully!');
 
-    // Reset fields
-    setMediaDesc('');
-    setMediaUrlInput('');
-    setMediaFile(null);
-    setMediaFilePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+      // Reset fields
+      setMediaDesc('');
+      setMediaUrlInput('');
+      setMediaFile(null);
+      setMediaFilePreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err) {
+      console.error("Error saving media to Firestore:", err);
+      triggerNotification('error', 'Failed to save to cloud. The image might be too large or there was a connection error.');
+    } finally {
+      setIsSavingMedia(false);
+    }
   };
 
   // Execute Delete after confirmation
@@ -1304,10 +1332,10 @@ export default function AdminPanel({
 
                   <button
                     type="submit"
-                    disabled={isCompressing}
-                    className="px-4 py-2 bg-[#c5a059] hover:bg-[#b08b49] text-white text-xs font-bold rounded shadow"
+                    disabled={isCompressing || isSavingMedia}
+                    className="px-4 py-2 bg-[#c5a059] hover:bg-[#b08b49] text-white text-xs font-bold rounded shadow disabled:opacity-50"
                   >
-                    Add Media Item
+                    {isCompressing ? 'Compressing Image...' : isSavingMedia ? 'Saving to Cloud...' : 'Add Media Item'}
                   </button>
                 </form>
 

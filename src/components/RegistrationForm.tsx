@@ -11,16 +11,12 @@ interface RegistrationFormProps {
   schedules: ClassSchedule[];
   preSelectedClassId?: string;
   onRegisterSubmit: (registration: Omit<Registration, 'id' | 'registrationDate' | 'status'>) => void;
-  currentStudent: { id: string; name: string; email: string; phone: string } | null;
-  onNavigateToLogin: () => void;
 }
 
 export default function RegistrationForm({ 
   schedules, 
   preSelectedClassId, 
-  onRegisterSubmit,
-  currentStudent,
-  onNavigateToLogin
+  onRegisterSubmit
 }: RegistrationFormProps) {
   const [formData, setFormData] = useState({
     studentName: '',
@@ -37,18 +33,6 @@ export default function RegistrationForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [createdRecord, setCreatedRecord] = useState<any>(null);
-
-  // Auto pre-fill with student account profile info when logged in
-  useEffect(() => {
-    if (currentStudent) {
-      setFormData(prev => ({
-        ...prev,
-        studentName: prev.studentName || currentStudent.name,
-        email: prev.email || currentStudent.email,
-        phone: prev.phone || currentStudent.phone
-      }));
-    }
-  }, [currentStudent]);
 
   useEffect(() => {
     if (preSelectedClassId) {
@@ -95,10 +79,6 @@ export default function RegistrationForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentStudent) {
-      setError('auth', 'You must be logged in to submit this form.');
-      return;
-    }
     if (!validate()) return;
 
     setIsSubmitting(true);
@@ -129,13 +109,13 @@ export default function RegistrationForm({
       setIsSubmitting(false);
       setIsSuccess(true);
       
-      // Reset form (keep student credentials filled in)
+      // Reset form
       setFormData({
-        studentName: currentStudent ? currentStudent.name : '',
+        studentName: '',
         age: '',
         parentName: '',
-        email: currentStudent ? currentStudent.email : '',
-        phone: currentStudent ? currentStudent.phone : '',
+        email: '',
+        phone: '',
         selectedClassId: schedules[0]?.id || '',
         experience: 'None',
         notes: ''
@@ -184,28 +164,12 @@ export default function RegistrationForm({
             <p className="text-stone-400 text-xs mt-1">Follow these steps to secure your traditional Gurukul placement</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
             {/* Step 1 */}
-            <div className={`relative p-4 rounded-xl border transition-all ${currentStudent ? 'bg-emerald-50/40 border-emerald-200' : 'bg-amber-50/25 border-[#c5a059]/30'}`}>
+            <div className={`relative p-4 rounded-xl border transition-all ${isSuccess ? 'bg-emerald-50/40 border-emerald-200' : 'bg-amber-50/25 border-[#c5a059]/30'}`}>
               <div className="flex items-center space-x-3 mb-2">
-                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${currentStudent ? 'bg-emerald-600 text-white' : 'bg-[#c5a059] text-white'}`}>
-                  {currentStudent ? '✓' : '1'}
-                </span>
-                <h4 className="font-serif font-bold text-[#9c7a46] text-sm">Create Account</h4>
-              </div>
-              <p className="text-stone-500 text-xs font-light leading-relaxed">
-                Sign in or register a Student Account. This validates your registration and email updates.
-              </p>
-              {currentStudent && (
-                <span className="absolute top-4 right-4 text-emerald-600 text-[10px] font-bold">Done</span>
-              )}
-            </div>
-
-            {/* Step 2 */}
-            <div className={`relative p-4 rounded-xl border transition-all ${currentStudent && !isSuccess ? 'bg-amber-50/25 border-[#c5a059]/40' : isSuccess ? 'bg-emerald-50/40 border-emerald-200' : 'bg-stone-50 border-stone-200'}`}>
-              <div className="flex items-center space-x-3 mb-2">
-                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isSuccess ? 'bg-emerald-600 text-white' : currentStudent ? 'bg-[#c5a059] text-white' : 'bg-stone-200 text-stone-600'}`}>
-                  {isSuccess ? '✓' : '2'}
+                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isSuccess ? 'bg-emerald-600 text-white' : 'bg-[#c5a059] text-white'}`}>
+                  {isSuccess ? '✓' : '1'}
                 </span>
                 <h4 className="font-serif font-bold text-[#9c7a46] text-sm">Class Inquiry</h4>
               </div>
@@ -217,11 +181,11 @@ export default function RegistrationForm({
               )}
             </div>
 
-            {/* Step 3 */}
+            {/* Step 2 */}
             <div className={`relative p-4 rounded-xl border transition-all ${isSuccess ? 'bg-amber-50/30 border-[#c5a059]/45' : 'bg-stone-50 border-stone-200'}`}>
               <div className="flex items-center space-x-3 mb-2">
                 <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isSuccess ? 'bg-[#c5a059] text-white' : 'bg-stone-200 text-stone-600'}`}>
-                  3
+                  2
                 </span>
                 <h4 className="font-serif font-bold text-[#9c7a46] text-sm">Guru Interview</h4>
               </div>
@@ -300,46 +264,9 @@ export default function RegistrationForm({
             </div>
           </div>
 
-          {/* Right: Registration Form Core or Login Prompt (8 Columns) */}
+          {/* Right: Registration Form Core (8 Columns) */}
           <div className="lg:col-span-8 bg-white border border-stone-200 p-6 sm:p-10 rounded-2xl shadow-sm">
-            {!currentStudent ? (
-              /* RESTRICTED ACCESS LOCK BOX */
-              <div className="text-center py-12 px-4 space-y-6">
-                <div className="bg-amber-50 text-amber-600 p-4 rounded-full inline-block border border-amber-200">
-                  <Lock className="h-10 w-10 text-[#9c7a46]" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-serif text-2xl font-bold text-stone-950">
-                    Authentication Required
-                  </h3>
-                  <p className="text-stone-500 text-sm max-w-md mx-auto leading-relaxed font-light">
-                    To prevent unauthorized form submissions and secure your candidate profile, registration is restricted to authenticated student accounts. 
-                  </p>
-                </div>
-
-                <div className="bg-stone-50 p-6 rounded-xl border border-stone-200 max-w-md mx-auto text-left space-y-3">
-                  <span className="text-[10px] uppercase font-mono font-bold text-[#9c7a46] tracking-wider block bg-[#faf6f0] border border-[#c5a059]/20 px-2 py-0.5 rounded w-fit">
-                    Account benefits
-                  </span>
-                  <ul className="text-xs text-stone-650 space-y-2 list-disc list-inside font-light">
-                    <li>Submit official academy admissions</li>
-                    <li>Secure communications with Guru Srimayi Devi</li>
-                    <li>Pre-fill student info on multiple forms</li>
-                    <li>Verify enrollment status</li>
-                  </ul>
-                </div>
-
-                <div className="pt-4">
-                  <button
-                    onClick={onNavigateToLogin}
-                    className="group relative inline-flex items-center justify-center space-x-2 px-8 py-3 bg-[#c5a059] hover:bg-[#b08b49] text-white text-xs tracking-wider uppercase font-extrabold rounded-lg shadow-md transition-all cursor-pointer"
-                  >
-                    <span>Sign In or Register Account</span>
-                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </div>
-              </div>
-            ) : isSuccess ? (
+            {isSuccess ? (
               <div className="text-center py-10 space-y-6">
                 <div className="bg-emerald-50 text-emerald-600 p-4 rounded-full inline-block border border-emerald-200">
                   <CheckCircle className="h-14 w-14" />
@@ -377,7 +304,7 @@ export default function RegistrationForm({
 
                   <div className="h-[1px] bg-stone-200 my-2" />
 
-                  <p className="text-xs text-stone-500 leading-relaxed font-light">
+                  <p className="text-xs text-stone-555 leading-relaxed font-light">
                     1. A confirmation copy of this registration has been sent to <span className="font-medium text-stone-900">{createdRecord?.email}</span>.
                   </p>
                   <p className="text-xs text-stone-555 leading-relaxed font-light">
@@ -408,9 +335,9 @@ export default function RegistrationForm({
                     </h3>
                     <p className="text-xs sm:text-sm text-stone-500 font-light mt-1">Fields marked with * are mandatory.</p>
                   </div>
-                  <div className="bg-emerald-50 text-emerald-800 text-[11px] font-medium py-1 px-3 rounded-lg border border-emerald-150 flex items-center space-x-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>Submitting as: {currentStudent.name}</span>
+                  <div className="bg-amber-50 text-amber-800 text-[11px] font-medium py-1 px-3 rounded-lg border border-amber-150 flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                    <span>Quick Enrollment Portal</span>
                   </div>
                 </div>
 

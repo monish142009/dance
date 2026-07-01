@@ -26,13 +26,12 @@ import {
   DEFAULT_GALLERY,
   ALL_TEACHERS_PROFILES
 } from './data/kuchipudiData';
-import { ClassSchedule, GalleryItem, Registration, StudentUser, InstructorProfile } from './types';
+import { ClassSchedule, GalleryItem, Registration, InstructorProfile } from './types';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('home');
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [preSelectedClassId, setPreSelectedClassId] = useState<string>('');
-  const [currentStudent, setCurrentStudent] = useState<StudentUser | null>(null);
 
   // Core Persisted States
   const [schedules, setSchedules] = useState<ClassSchedule[]>([]);
@@ -45,11 +44,6 @@ export default function App() {
     const cachedAdmin = sessionStorage.getItem('kuchipudi_admin_session');
     if (cachedAdmin === 'active') {
       setIsAdmin(true);
-    }
-
-    const cachedStudent = localStorage.getItem('kuchipudi_current_student');
-    if (cachedStudent) {
-      setCurrentStudent(JSON.parse(cachedStudent));
     }
 
     // Migrate old localStorage gallery items to Firestore
@@ -214,20 +208,6 @@ export default function App() {
     }
   };
 
-  const handleStudentLoginSuccess = (student: StudentUser) => {
-    setCurrentStudent(student);
-    localStorage.setItem('kuchipudi_current_student', JSON.stringify(student));
-    setCurrentTab('register');
-  };
-
-  const handleStudentLogout = () => {
-    setCurrentStudent(null);
-    localStorage.removeItem('kuchipudi_current_student');
-    if (currentTab === 'register') {
-      setCurrentTab('home');
-    }
-  };
-
   // Action: direct selection of a course to sign up
   const handleSelectClassToEnroll = (classId: string) => {
     setPreSelectedClassId(classId);
@@ -278,8 +258,6 @@ export default function App() {
         setCurrentTab={setCurrentTab} 
         isAdmin={isAdmin} 
         logout={handleLogout} 
-        currentStudent={currentStudent}
-        studentLogout={handleStudentLogout}
       />
 
       {/* Main Content Area */}
@@ -626,8 +604,6 @@ export default function App() {
             schedules={schedules} 
             preSelectedClassId={preSelectedClassId}
             onRegisterSubmit={handleRegisterSubmit}
-            currentStudent={currentStudent}
-            onNavigateToLogin={() => { setCurrentTab('login'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           />
         )}
 
@@ -635,7 +611,6 @@ export default function App() {
         {currentTab === 'login' && (
           <Login 
             onLoginSuccess={handleLoginSuccess} 
-            onStudentLoginSuccess={handleStudentLoginSuccess} 
           />
         )}
 
