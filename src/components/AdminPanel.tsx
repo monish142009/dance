@@ -10,8 +10,6 @@ import {
   Sparkles, ListCollapse, AlertCircle, Upload, ArrowRight, Edit3, X, Save,
   Award
 } from 'lucide-react';
-import { db } from '../firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { ClassSchedule, GalleryItem, Registration, InstructorProfile } from '../types';
 
 interface AdminPanelProps {
@@ -245,7 +243,6 @@ export default function AdminPanel({
 
     setIsSavingMedia(true);
     try {
-      await setDoc(doc(db, "gallery", newItem.id), newItem);
       setGalleryItems(prev => [newItem, ...prev]);
       triggerNotification('success', 'New item added to gallery successfully!');
 
@@ -256,8 +253,8 @@ export default function AdminPanel({
       setMediaFilePreview(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
-      console.error("Error saving media to Firestore:", err);
-      triggerNotification('error', 'Failed to save to cloud. The image might be too large or there was a connection error.');
+      console.error("Error saving media:", err);
+      triggerNotification('error', 'Failed to save media.');
     } finally {
       setIsSavingMedia(false);
     }
@@ -270,15 +267,12 @@ export default function AdminPanel({
     const { type, id } = deleteConfirm;
     if (type === 'media') {
       setGalleryItems(prev => prev.filter(item => item.id !== id));
-      deleteDoc(doc(db, "gallery", id)).catch(err => console.error("Error deleting media from Firestore:", err));
       triggerNotification('success', 'Media item removed successfully.');
     } else if (type === 'registration') {
       setRegistrations(prev => prev.filter(reg => reg.id !== id));
-      deleteDoc(doc(db, "registrations", id)).catch(err => console.error("Error deleting registration from Firestore:", err));
       triggerNotification('success', 'Registration record deleted.');
     } else if (type === 'class') {
       setSchedules(prev => prev.filter(c => c.id !== id));
-      deleteDoc(doc(db, "schedules", id)).catch(err => console.error("Error deleting schedule from Firestore:", err));
       triggerNotification('success', 'Course schedule deleted.');
     }
 
@@ -313,8 +307,6 @@ export default function AdminPanel({
     updatedTeachers[selectedTeacherIdx] = currentGuru;
 
     setTeachers(updatedTeachers);
-    const docId = currentGuru.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-    setDoc(doc(db, "teachers", docId), currentGuru).catch(err => console.error("Error updating teacher in Firestore:", err));
     triggerNotification('success', `Added "${newAwardTitle}" to ${currentGuru.name}'s profile successfully!`);
 
     // Reset fields
@@ -337,8 +329,6 @@ export default function AdminPanel({
     updatedTeachers[guruIdx] = currentGuru;
 
     setTeachers(updatedTeachers);
-    const docId = currentGuru.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-    setDoc(doc(db, "teachers", docId), currentGuru).catch(err => console.error("Error updating teacher in Firestore:", err));
     triggerNotification('success', `Removed "${removedAwardTitle}" award.`);
   };
 
@@ -419,8 +409,6 @@ export default function AdminPanel({
     };
 
     setTeachers(prev => [...prev, newGuru]);
-    const docId = newGuruName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-    setDoc(doc(db, "teachers", docId), newGuru).catch(err => console.error("Error adding teacher to Firestore:", err));
     triggerNotification('success', `Registered Guru ${newGuruName} as a distinguished faculty member!`);
 
     // Reset fields and toggle form
@@ -482,8 +470,6 @@ export default function AdminPanel({
 
     updatedTeachers[selectedTeacherIdx] = currentGuru;
     setTeachers(updatedTeachers);
-    const docId = currentGuru.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-    setDoc(doc(db, "teachers", docId), currentGuru).catch(err => console.error("Error updating teacher in Firestore:", err));
     triggerNotification('success', `Updated ${editGuruName}'s profile successfully!`);
     
     // Clean up
@@ -503,9 +489,7 @@ export default function AdminPanel({
   const updateRegistrationStatus = (id: string, newStatus: 'Approved' | 'Contacted') => {
     setRegistrations(prev => prev.map(reg => {
       if (reg.id === id) {
-        const updated = { ...reg, status: newStatus };
-        setDoc(doc(db, "registrations", id), updated).catch(err => console.error("Error updating registration status:", err));
-        return updated;
+        return { ...reg, status: newStatus };
       }
       return reg;
     }));
@@ -529,12 +513,10 @@ export default function AdminPanel({
       // Editing
       setSchedules(prev => prev.map(c => {
         if (c.id === editingClassId) {
-          const updated = {
+          return {
             ...c,
             ...classForm
           };
-          setDoc(doc(db, "schedules", editingClassId), updated).catch(err => console.error("Error updating course in Firestore:", err));
-          return updated;
         }
         return c;
       }));
@@ -548,7 +530,6 @@ export default function AdminPanel({
         registeredCount: 0
       };
       setSchedules(prev => [...prev, item]);
-      setDoc(doc(db, "schedules", item.id), item).catch(err => console.error("Error saving course to Firestore:", err));
       triggerNotification('success', `New course '${classForm.className}' added successfully.`);
     }
 
@@ -632,7 +613,6 @@ export default function AdminPanel({
     };
 
     setRegistrations(prev => prev.map(r => r.id === editingRegId ? updatedRegData : r));
-    setDoc(doc(db, "registrations", updatedRegData.id), updatedRegData).catch(err => console.error("Error saving registration edit to Firestore:", err));
     triggerNotification('success', 'Student registration details saved.');
     setEditingRegId(null);
     setEditingRegData(null);
@@ -671,7 +651,6 @@ export default function AdminPanel({
     };
 
     setRegistrations(prev => [newReg, ...prev]);
-    setDoc(doc(db, "registrations", newReg.id), newReg).catch(err => console.error("Error saving manual registration to Firestore:", err));
     triggerNotification('success', `Manual student record '${newReg.studentName}' created successfully.`);
     
     // Reset Form
@@ -706,7 +685,6 @@ export default function AdminPanel({
     }
 
     setGalleryItems(prev => prev.map(item => item.id === editingMediaId ? editingMediaData : item));
-    setDoc(doc(db, "gallery", editingMediaData.id), editingMediaData).catch(err => console.error("Error saving media edit to Firestore:", err));
     triggerNotification('success', 'Gallery item updated.');
     setEditingMediaId(null);
     setEditingMediaData(null);

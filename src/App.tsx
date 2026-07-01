@@ -17,9 +17,6 @@ import RegistrationForm from './components/RegistrationForm';
 import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
 
-import { db } from './firebase';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
-
 import { 
   DEFAULT_INSTRUCTOR_PROFILE, 
   DEFAULT_CLASSES, 
@@ -34,162 +31,65 @@ export default function App() {
   const [preSelectedClassId, setPreSelectedClassId] = useState<string>('');
 
   // Core Persisted States
-  const [schedules, setSchedules] = useState<ClassSchedule[]>([]);
-  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [teachers, setTeachers] = useState<InstructorProfile[]>([]);
+  const [schedules, setSchedules] = useState<ClassSchedule[]>(() => {
+    try {
+      const cached = localStorage.getItem('kuchipudi_schedules_v2');
+      return cached ? JSON.parse(cached) : DEFAULT_CLASSES;
+    } catch {
+      return DEFAULT_CLASSES;
+    }
+  });
 
-  // Load and sync with Firebase Firestore in real-time
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(() => {
+    try {
+      const cached = localStorage.getItem('kuchipudi_gallery_v2');
+      return cached ? JSON.parse(cached) : DEFAULT_GALLERY;
+    } catch {
+      return DEFAULT_GALLERY;
+    }
+  });
+
+  const [registrations, setRegistrations] = useState<Registration[]>(() => {
+    try {
+      const cached = localStorage.getItem('kuchipudi_registrations_v2');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [teachers, setTeachers] = useState<InstructorProfile[]>(() => {
+    try {
+      const cached = localStorage.getItem('kuchipudi_teachers_v2');
+      return cached ? JSON.parse(cached) : ALL_TEACHERS_PROFILES;
+    } catch {
+      return ALL_TEACHERS_PROFILES;
+    }
+  });
+
+  // Persist state updates to local storage
+  useEffect(() => {
+    localStorage.setItem('kuchipudi_schedules_v2', JSON.stringify(schedules));
+  }, [schedules]);
+
+  useEffect(() => {
+    localStorage.setItem('kuchipudi_gallery_v2', JSON.stringify(galleryItems));
+  }, [galleryItems]);
+
+  useEffect(() => {
+    localStorage.setItem('kuchipudi_registrations_v2', JSON.stringify(registrations));
+  }, [registrations]);
+
+  useEffect(() => {
+    localStorage.setItem('kuchipudi_teachers_v2', JSON.stringify(teachers));
+  }, [teachers]);
+
+  // Load session states
   useEffect(() => {
     const cachedAdmin = sessionStorage.getItem('kuchipudi_admin_session');
     if (cachedAdmin === 'active') {
       setIsAdmin(true);
     }
-
-    // Migrate old localStorage gallery items to Firestore
-    try {
-      const cachedGallery = localStorage.getItem('kuchipudi_gallery');
-      if (cachedGallery) {
-        const localItems = JSON.parse(cachedGallery) as GalleryItem[];
-        const customLocalItems = localItems.filter(item => 
-          item.id.startsWith('media-custom-') || !DEFAULT_GALLERY.some(def => def.id === item.id)
-        );
-        if (customLocalItems.length > 0) {
-          console.log("Migrating custom local gallery items to Firestore:", customLocalItems);
-          customLocalItems.forEach((item) => {
-            setDoc(doc(db, "gallery", item.id), item)
-              .then(() => {
-                console.log(`Successfully migrated item ${item.id} to Firestore`);
-              })
-              .catch(err => {
-                console.error(`Error migrating item ${item.id} to Firestore:`, err);
-              });
-          });
-          // Remove custom ones from local storage so we do not attempt to migrate them again
-          const remainingLocal = localItems.filter(item => !customLocalItems.some(c => c.id === item.id));
-          localStorage.setItem('kuchipudi_gallery', JSON.stringify(remainingLocal));
-        }
-      }
-    } catch (err) {
-      console.error("Failed to migrate localStorage gallery items:", err);
-    }
-
-    // Migrate old localStorage registrations to Firestore
-    try {
-      const cachedRegs = localStorage.getItem('kuchipudi_registrations');
-      if (cachedRegs) {
-        const localRegs = JSON.parse(cachedRegs) as Registration[];
-        if (localRegs.length > 0) {
-          console.log("Migrating custom local registrations to Firestore:", localRegs);
-          localRegs.forEach((reg) => {
-            setDoc(doc(db, "registrations", reg.id), reg)
-              .then(() => {
-                console.log(`Successfully migrated registration ${reg.id} to Firestore`);
-              })
-              .catch(err => {
-                console.error(`Error migrating registration ${reg.id} to Firestore:`, err);
-              });
-          });
-          localStorage.removeItem('kuchipudi_registrations');
-        }
-      }
-    } catch (err) {
-      console.error("Failed to migrate localStorage registrations:", err);
-    }
-
-    // 1. Sync Gallery Items
-    const unsubscribeGallery = onSnapshot(collection(db, "gallery"), (snapshot) => {
-      if (snapshot.empty) {
-        // Seeding initial default items if empty
-        DEFAULT_GALLERY.forEach((item) => {
-          setDoc(doc(db, "gallery", item.id), item).catch(err => console.error("Error seeding gallery:", err));
-        });
-        setGalleryItems(DEFAULT_GALLERY);
-      } else {
-        const items: GalleryItem[] = [];
-        snapshot.forEach((doc) => {
-          items.push(doc.data() as GalleryItem);
-        });
-        // Sort items so that the newest additions (or based on dynamic ID/timestamp) come first
-        items.sort((a, b) => {
-          const aTime = a.id.startsWith('media-custom-') ? parseInt(a.id.split('-')[2]) : 0;
-          const bTime = b.id.startsWith('media-custom-') ? parseInt(b.id.split('-')[2]) : 0;
-          if (aTime && bTime) {
-            return bTime - aTime; // Newest first
-          }
-          if (aTime) return -1;
-          if (bTime) return 1;
-          return a.id.localeCompare(b.id);
-        });
-        setGalleryItems(items);
-      }
-    }, (error) => {
-      console.error("Gallery snapshot error:", error);
-    });
-
-    // 2. Sync Instructors / Teachers
-    const unsubscribeTeachers = onSnapshot(collection(db, "teachers"), (snapshot) => {
-      if (snapshot.empty) {
-        ALL_TEACHERS_PROFILES.forEach((profile) => {
-          const docId = profile.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-          setDoc(doc(db, "teachers", docId), profile).catch(err => console.error("Error seeding teachers:", err));
-        });
-        setTeachers(ALL_TEACHERS_PROFILES);
-      } else {
-        const items: InstructorProfile[] = [];
-        snapshot.forEach((doc) => {
-          items.push(doc.data() as InstructorProfile);
-        });
-        setTeachers(items);
-      }
-    }, (error) => {
-      console.error("Teachers snapshot error:", error);
-    });
-
-    // 3. Sync Course Schedules
-    const unsubscribeSchedules = onSnapshot(collection(db, "schedules"), (snapshot) => {
-      if (snapshot.empty) {
-        DEFAULT_CLASSES.forEach((course) => {
-          setDoc(doc(db, "schedules", course.id), course).catch(err => console.error("Error seeding schedules:", err));
-        });
-        setSchedules(DEFAULT_CLASSES);
-      } else {
-        const items: ClassSchedule[] = [];
-        snapshot.forEach((doc) => {
-          items.push(doc.data() as ClassSchedule);
-        });
-        items.sort((a, b) => a.id.localeCompare(b.id));
-        setSchedules(items);
-      }
-    }, (error) => {
-      console.error("Schedules snapshot error:", error);
-    });
-
-    // 4. Sync Registrations
-    const unsubscribeRegistrations = onSnapshot(collection(db, "registrations"), (snapshot) => {
-      const items: Registration[] = [];
-      snapshot.forEach((doc) => {
-        items.push(doc.data() as Registration);
-      });
-      items.sort((a, b) => {
-        const aTime = a.id.startsWith('reg-') ? parseInt(a.id.split('-')[1]) : 0;
-        const bTime = b.id.startsWith('reg-') ? parseInt(b.id.split('-')[1]) : 0;
-        if (aTime && bTime) {
-          return bTime - aTime;
-        }
-        return b.registrationDate.localeCompare(a.registrationDate);
-      });
-      setRegistrations(items);
-    }, (error) => {
-      console.error("Registrations snapshot error:", error);
-    });
-
-    return () => {
-      unsubscribeGallery();
-      unsubscribeTeachers();
-      unsubscribeSchedules();
-      unsubscribeRegistrations();
-    };
   }, []);
 
   // Handle Login success
@@ -232,15 +132,10 @@ export default function App() {
 
     setRegistrations(prev => [freshRecord, ...prev]);
 
-    // Save registration record to Firestore
-    setDoc(doc(db, "registrations", freshRecord.id), freshRecord).catch(err => console.error("Error saving registration to Firestore:", err));
-
-    // Automatically increment the registered count in schedules both locally and in Firestore
+    // Automatically increment the registered count in schedules
     setSchedules(prev => prev.map(course => {
       if (course.id === newReg.selectedClassId) {
-        const updatedCourse = { ...course, registeredCount: Math.min(course.maxStudents, course.registeredCount + 1) };
-        setDoc(doc(db, "schedules", course.id), updatedCourse).catch(err => console.error("Error updating course count in Firestore:", err));
-        return updatedCourse;
+        return { ...course, registeredCount: Math.min(course.maxStudents, course.registeredCount + 1) };
       }
       return course;
     }));
