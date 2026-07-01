@@ -57,6 +57,15 @@ export default function AdminPanel({
   const [editGuruImageUrl, setEditGuruImageUrl] = useState<string>('');
   const [editGuruTraining, setEditGuruTraining] = useState<string>('');
 
+  // File states for Guru profiles
+  const [newGuruImageFile, setNewGuruImageFile] = useState<File | null>(null);
+  const [newGuruImageFilePreview, setNewGuruImageFilePreview] = useState<string | null>(null);
+  const [editGuruImageFile, setEditGuruImageFile] = useState<File | null>(null);
+  const [editGuruImageFilePreview, setEditGuruImageFilePreview] = useState<string | null>(null);
+  const [isGuruImageCompressing, setIsGuruImageCompressing] = useState<boolean>(false);
+  const newGuruFileInputRef = useRef<HTMLInputElement>(null);
+  const editGuruFileInputRef = useRef<HTMLInputElement>(null);
+
   // File states for Media tab
   const [mediaDesc, setMediaDesc] = useState('');
   const [mediaCategory, setMediaCategory] = useState<'Performance' | 'Classroom' | 'Festival' | 'Workshop'>('Performance');
@@ -193,45 +202,27 @@ export default function AdminPanel({
     e.preventDefault();
 
     let finalUrl = '';
-    if (mediaType === 'image') {
-      if (mediaFilePreview) {
-        finalUrl = mediaFilePreview;
-      } else if (mediaUrlInput.trim()) {
-        finalUrl = mediaUrlInput.trim();
-      } else {
-        triggerNotification('error', 'Please upload an image file or provide an image link.');
-        return;
-      }
+    if (mediaFilePreview) {
+      finalUrl = mediaFilePreview;
+    } else if (mediaUrlInput.trim()) {
+      finalUrl = mediaUrlInput.trim();
     } else {
-      // Video
-      if (!mediaUrlInput.trim()) {
-        triggerNotification('error', 'Please provide a YouTube embed video URL.');
-        return;
-      }
-      // Clean YouTube link to embed format if needed
-      let rawUrl = mediaUrlInput.trim();
-      if (rawUrl.includes('youtube.com/watch?v=')) {
-        const videoId = rawUrl.split('v=')[1]?.split('&')[0];
-        rawUrl = `https://www.youtube.com/embed/${videoId}`;
-      } else if (rawUrl.includes('youtu.be/')) {
-        const videoId = rawUrl.split('youtu.be/')[1]?.split('?')[0];
-        rawUrl = `https://www.youtube.com/embed/${videoId}`;
-      }
-      finalUrl = rawUrl;
+      triggerNotification('error', 'Please upload an image file or provide an image link.');
+      return;
     }
 
     const newItem: GalleryItem = {
       id: `media-custom-${Date.now()}`,
       title: `${mediaCategory} Showcase`,
-      description: mediaDesc.trim() || 'Classical expressions showcase',
+      description: '',
       category: mediaCategory,
-      type: mediaType,
+      type: 'image',
       url: finalUrl,
       date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     };
 
     setGalleryItems(prev => [newItem, ...prev]);
-    triggerNotification('success', `New ${mediaType} added to gallery successfully!`);
+    triggerNotification('success', 'New item added to gallery successfully!');
 
     // Reset fields
     setMediaDesc('');
@@ -313,6 +304,56 @@ export default function AdminPanel({
     triggerNotification('success', `Removed "${removedAwardTitle}" award.`);
   };
 
+  // File change handler for Register Guru
+  const handleNewGuruFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+
+    if (!selected.type.startsWith('image/')) {
+      triggerNotification('error', 'Please select a valid image file.');
+      return;
+    }
+
+    setNewGuruImageFile(selected);
+    setIsGuruImageCompressing(true);
+    
+    try {
+      const compressedDataUrl = await compressImage(selected);
+      setNewGuruImageFilePreview(compressedDataUrl);
+      setNewGuruImageUrl(''); // clear text URL input
+    } catch (err) {
+      console.error(err);
+      triggerNotification('error', 'Failed to compress image.');
+    } finally {
+      setIsGuruImageCompressing(false);
+    }
+  };
+
+  // File change handler for Edit Guru
+  const handleEditGuruFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+
+    if (!selected.type.startsWith('image/')) {
+      triggerNotification('error', 'Please select a valid image file.');
+      return;
+    }
+
+    setEditGuruImageFile(selected);
+    setIsGuruImageCompressing(true);
+    
+    try {
+      const compressedDataUrl = await compressImage(selected);
+      setEditGuruImageFilePreview(compressedDataUrl);
+      setEditGuruImageUrl(''); // clear text URL input
+    } catch (err) {
+      console.error(err);
+      triggerNotification('error', 'Failed to compress image.');
+    } finally {
+      setIsGuruImageCompressing(false);
+    }
+  };
+
   // Add a brand new Guru/Faculty profile
   const handleAddGuru = (e: React.FormEvent) => {
     e.preventDefault();
@@ -322,10 +363,17 @@ export default function AdminPanel({
     }
 
     const defaultImg = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800";
+    let finalImgUrl = defaultImg;
+    if (newGuruImageFilePreview) {
+      finalImgUrl = newGuruImageFilePreview;
+    } else if (newGuruImageUrl.trim()) {
+      finalImgUrl = newGuruImageUrl.trim();
+    }
+
     const newGuru: InstructorProfile = {
       name: newGuruName,
       title: newGuruTitle,
-      imageUrl: newGuruImageUrl.trim() || defaultImg,
+      imageUrl: finalImgUrl,
       bioParagraphs: newGuruBio.split('\n\n').filter(p => p.trim() !== ''),
       training: newGuruTraining.split('\n').filter(t => t.trim() !== ''),
       achievements: [],
@@ -341,6 +389,9 @@ export default function AdminPanel({
     setNewGuruBio('');
     setNewGuruImageUrl('');
     setNewGuruTraining('');
+    setNewGuruImageFile(null);
+    setNewGuruImageFilePreview(null);
+    if (newGuruFileInputRef.current) newGuruFileInputRef.current.value = '';
     setShowNewGuruForm(false);
     setSelectedTeacherIdx(teachers.length); // auto-select the newly added Guru
   };
@@ -350,7 +401,17 @@ export default function AdminPanel({
     setEditGuruName(guru.name);
     setEditGuruTitle(guru.title);
     setEditGuruBio(guru.bioParagraphs ? guru.bioParagraphs.join('\n\n') : '');
-    setEditGuruImageUrl(guru.imageUrl || '');
+    
+    if (guru.imageUrl && guru.imageUrl.startsWith('data:')) {
+      setEditGuruImageUrl('');
+      setEditGuruImageFilePreview(guru.imageUrl);
+    } else {
+      setEditGuruImageUrl(guru.imageUrl || '');
+      setEditGuruImageFilePreview(null);
+    }
+    setEditGuruImageFile(null);
+    if (editGuruFileInputRef.current) editGuruFileInputRef.current.value = '';
+
     setEditGuruTraining(guru.training ? guru.training.join('\n') : '');
     setIsEditingGuru(true);
   };
@@ -366,15 +427,28 @@ export default function AdminPanel({
     const currentGuru = updatedTeachers[selectedTeacherIdx];
     if (!currentGuru) return;
 
+    let finalImgUrl = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800";
+    if (editGuruImageFilePreview) {
+      finalImgUrl = editGuruImageFilePreview;
+    } else if (editGuruImageUrl.trim()) {
+      finalImgUrl = editGuruImageUrl.trim();
+    }
+
     currentGuru.name = editGuruName;
     currentGuru.title = editGuruTitle;
-    currentGuru.imageUrl = editGuruImageUrl.trim() || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800";
+    currentGuru.imageUrl = finalImgUrl;
     currentGuru.bioParagraphs = editGuruBio.split('\n\n').filter(p => p.trim() !== '');
     currentGuru.training = editGuruTraining.split('\n').filter(t => t.trim() !== '');
 
     updatedTeachers[selectedTeacherIdx] = currentGuru;
     setTeachers(updatedTeachers);
     triggerNotification('success', `Updated ${editGuruName}'s profile successfully!`);
+    
+    // Clean up
+    setEditGuruImageFile(null);
+    setEditGuruImageFilePreview(null);
+    if (editGuruFileInputRef.current) editGuruFileInputRef.current.value = '';
+    
     setIsEditingGuru(false);
   };
 
@@ -1144,13 +1218,13 @@ export default function AdminPanel({
                 {/* Media add form */}
                 <form onSubmit={handleAddMedia} className="space-y-4 bg-stone-50 border border-stone-200 p-5 rounded-xl">
                   <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block">Add New Media Item</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-stone-600 uppercase">Category</label>
                       <select 
                         value={mediaCategory}
                         onChange={(e: any) => setMediaCategory(e.target.value)}
-                        className="w-full px-3 py-2 bg-white text-stone-800 border rounded text-xs"
+                        className="w-full max-w-xs px-3 py-2 bg-white text-stone-800 border rounded text-xs"
                       >
                         <option value="Performance">Performance</option>
                         <option value="Classroom">Classroom</option>
@@ -1158,89 +1232,53 @@ export default function AdminPanel({
                         <option value="Workshop">Workshop</option>
                       </select>
                     </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-stone-600 uppercase">Type</label>
-                      <select 
-                        value={mediaType}
-                        onChange={(e: any) => setMediaType(e.target.value)}
-                        className="w-full px-3 py-2 bg-white text-stone-800 border rounded text-xs"
-                      >
-                        <option value="image">Image Asset</option>
-                        <option value="video">YouTube Embed Video</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-stone-600 uppercase">Description (Caption)</label>
-                      <input 
-                        type="text"
-                        value={mediaDesc}
-                        onChange={(e) => setMediaDesc(e.target.value)}
-                        placeholder="e.g. Hyderabad temple performance"
-                        className="w-full px-3 py-2 bg-white text-stone-800 border rounded text-xs"
-                      />
-                    </div>
                   </div>
 
-                  {mediaType === 'image' ? (
-                    <div className="space-y-3 pt-2">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                        <div className="flex-1">
-                          <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">Image Link URL</label>
-                          <input 
-                            type="text"
-                            value={mediaUrlInput}
-                            onChange={(e) => {
-                              setMediaUrlInput(e.target.value);
-                              setMediaFilePreview(null);
-                            }}
-                            placeholder="https://images.unsplash.com/..."
-                            className="w-full px-3 py-2 bg-white text-stone-800 border rounded text-xs"
-                          />
-                        </div>
-                        <div className="shrink-0 text-center text-xs font-semibold text-stone-400 py-1 sm:pt-4">OR</div>
-                        <div className="flex-1">
-                          <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">Upload File (Auto-Compressed)</label>
-                          <input 
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            accept="image/*"
-                            className="w-full text-xs text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300"
-                          />
-                        </div>
+                  <div className="space-y-3 pt-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">Image Link URL</label>
+                        <input 
+                          type="text"
+                          value={mediaUrlInput}
+                          onChange={(e) => {
+                            setMediaUrlInput(e.target.value);
+                            setMediaFilePreview(null);
+                          }}
+                          placeholder="https://images.unsplash.com/..."
+                          className="w-full px-3 py-2 bg-white text-stone-800 border rounded text-xs"
+                        />
                       </div>
+                      <div className="shrink-0 text-center text-xs font-semibold text-stone-400 py-1 sm:pt-4">OR</div>
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">Upload File (Auto-Compressed)</label>
+                        <input 
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleFileChange}
+                          accept="image/*"
+                          className="w-full text-xs text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300"
+                        />
+                      </div>
+                    </div>
 
-                      {mediaFilePreview && (
-                        <div className="w-24 h-24 relative rounded-md overflow-hidden border">
-                          <img src={mediaFilePreview} alt="Preview" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMediaFile(null);
-                              setMediaFilePreview(null);
-                              if (fileInputRef.current) fileInputRef.current.value = '';
-                            }}
-                            className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full hover:bg-black"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-stone-600 uppercase">YouTube Link URL *</label>
-                      <input
-                        type="text"
-                        value={mediaUrlInput}
-                        onChange={(e) => setMediaUrlInput(e.target.value)}
-                        placeholder="https://www.youtube.com/watch?v=..."
-                        className="w-full px-3 py-2 bg-white text-stone-800 border rounded text-xs"
-                      />
-                    </div>
-                  )}
+                    {mediaFilePreview && (
+                      <div className="w-24 h-24 relative rounded-md overflow-hidden border">
+                        <img src={mediaFilePreview} alt="Preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMediaFile(null);
+                            setMediaFilePreview(null);
+                            if (fileInputRef.current) fileInputRef.current.value = '';
+                          }}
+                          className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full hover:bg-black"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     type="submit"
@@ -1287,17 +1325,6 @@ export default function AdminPanel({
                               </select>
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-bold uppercase text-stone-400">Type</label>
-                              <select 
-                                value={editingMediaData.type}
-                                onChange={(e: any) => setEditingMediaData({ ...editingMediaData, type: e.target.value })}
-                                className="w-full p-1 border rounded text-xs bg-white text-stone-900"
-                              >
-                                <option value="image">image</option>
-                                <option value="video">video</option>
-                              </select>
-                            </div>
-                            <div className="space-y-1">
                               <label className="text-[9px] font-bold uppercase text-stone-400">URL / Source Link</label>
                               <input 
                                 type="text"
@@ -1337,7 +1364,7 @@ export default function AdminPanel({
                             </div>
                             <div className="flex-grow min-w-0">
                               <h5 className="text-xs font-bold text-stone-900 truncate font-serif">{item.title}</h5>
-                              <span className="block text-[10px] text-[#9c7a46] font-semibold uppercase font-mono">{item.category} • {item.type}</span>
+                              <span className="block text-[10px] text-[#9c7a46] font-semibold uppercase font-mono">{item.category}</span>
                               <span className="block text-[10px] text-stone-400 truncate max-w-xs">{item.url}</span>
                             </div>
                             <div className="flex flex-col space-y-1 shrink-0">
@@ -1652,17 +1679,59 @@ export default function AdminPanel({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-bold text-stone-700 uppercase mb-1">Image URL (Optional)</label>
-                        <input
-                          type="url"
-                          value={newGuruImageUrl}
-                          onChange={(e) => setNewGuruImageUrl(e.target.value)}
-                          placeholder="https://images.unsplash.com/photo-..."
-                          className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg focus:outline-none focus:border-[#c5a059] bg-white text-stone-800"
-                        />
+                    <div className="space-y-3 bg-stone-100/50 p-4 rounded-xl border border-stone-200">
+                      <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block">Faculty Portrait Image</span>
+                      <div className="flex flex-col md:flex-row md:items-center gap-4">
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-stone-700 uppercase mb-1">Image Link URL</label>
+                          <input
+                            type="url"
+                            value={newGuruImageUrl}
+                            onChange={(e) => {
+                              setNewGuruImageUrl(e.target.value);
+                              setNewGuruImageFilePreview(null);
+                              setNewGuruImageFile(null);
+                              if (newGuruFileInputRef.current) newGuruFileInputRef.current.value = '';
+                            }}
+                            placeholder="https://images.unsplash.com/photo-..."
+                            className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg focus:outline-none focus:border-[#c5a059] bg-white text-stone-800"
+                          />
+                        </div>
+                        <div className="shrink-0 text-center text-xs font-semibold text-stone-400 py-1 md:pt-4">OR</div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-stone-700 uppercase mb-1">Upload Photo {isGuruImageCompressing ? '(Processing...)' : '(Auto-Compressed)'}</label>
+                          <input
+                            type="file"
+                            ref={newGuruFileInputRef}
+                            onChange={handleNewGuruFileChange}
+                            accept="image/*"
+                            className="w-full text-xs text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300 cursor-pointer"
+                          />
+                        </div>
                       </div>
+
+                      {newGuruImageFilePreview && (
+                        <div className="flex items-center space-x-3 pt-1">
+                          <div className="w-16 h-16 relative rounded-md overflow-hidden border border-stone-200">
+                            <img src={newGuruImageFilePreview} alt="Preview" className="w-full h-full object-cover" />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewGuruImageFile(null);
+                              setNewGuruImageFilePreview(null);
+                              if (newGuruFileInputRef.current) newGuruFileInputRef.current.value = '';
+                            }}
+                            className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center space-x-1"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Remove Photo</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
                       <div>
                         <label className="block text-[11px] font-bold text-stone-700 uppercase mb-1">Professional Heritage & Training (One per line) *</label>
                         <textarea
@@ -1798,15 +1867,56 @@ export default function AdminPanel({
                             />
                           </div>
 
-                          <div>
-                            <label className="block text-[10px] font-bold text-stone-700 uppercase mb-1 tracking-wide">Image URL</label>
-                            <input
-                              type="url"
-                              value={editGuruImageUrl}
-                              onChange={(e) => setEditGuruImageUrl(e.target.value)}
-                              placeholder="https://images.unsplash.com/photo-..."
-                              className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg focus:outline-none focus:border-[#c5a059] bg-white text-stone-800"
-                            />
+                          <div className="space-y-3 bg-stone-100/50 p-4 rounded-xl border border-stone-200">
+                            <span className="text-[10px] font-bold text-stone-700 uppercase tracking-wider block">Faculty Portrait Image</span>
+                            <div className="flex flex-col md:flex-row md:items-center gap-4">
+                              <div className="flex-1">
+                                <label className="block text-[10px] font-bold text-stone-700 uppercase mb-1">Image Link URL</label>
+                                <input
+                                  type="url"
+                                  value={editGuruImageUrl}
+                                  onChange={(e) => {
+                                    setEditGuruImageUrl(e.target.value);
+                                    setEditGuruImageFilePreview(null);
+                                    setEditGuruImageFile(null);
+                                    if (editGuruFileInputRef.current) editGuruFileInputRef.current.value = '';
+                                  }}
+                                  placeholder="https://images.unsplash.com/photo-..."
+                                  className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg focus:outline-none focus:border-[#c5a059] bg-white text-stone-800"
+                                />
+                              </div>
+                              <div className="shrink-0 text-center text-xs font-semibold text-stone-400 py-1 md:pt-4">OR</div>
+                              <div className="flex-1">
+                                <label className="block text-[10px] font-bold text-stone-700 uppercase mb-1">Upload Photo {isGuruImageCompressing ? '(Processing...)' : '(Auto-Compressed)'}</label>
+                                <input
+                                  type="file"
+                                  ref={editGuruFileInputRef}
+                                  onChange={handleEditGuruFileChange}
+                                  accept="image/*"
+                                  className="w-full text-xs text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300 cursor-pointer"
+                                />
+                              </div>
+                            </div>
+
+                            {editGuruImageFilePreview && (
+                              <div className="flex items-center space-x-3 pt-1">
+                                <div className="w-16 h-16 relative rounded-md overflow-hidden border border-stone-200">
+                                  <img src={editGuruImageFilePreview} alt="Preview" className="w-full h-full object-cover" />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditGuruImageFile(null);
+                                    setEditGuruImageFilePreview(null);
+                                    if (editGuruFileInputRef.current) editGuruFileInputRef.current.value = '';
+                                  }}
+                                  className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center space-x-1"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  <span>Remove Photo</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
 
                           <div>

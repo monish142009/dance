@@ -54,7 +54,7 @@ export default function Login({ onLoginSuccess, onStudentLoginSuccess }: LoginPr
     setIsSubmitting(true);
 
     setTimeout(() => {
-      if (adminPassword === 'password-2009') {
+      if (adminPassword === 'kuchipudi') {
         onLoginSuccess();
         setAdminPassword('');
       } else {

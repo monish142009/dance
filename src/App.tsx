@@ -317,39 +317,7 @@ export default function App() {
               </div>
             </section>
 
-            {/* Featured Masterclass / Recital Video Section */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center max-w-3xl mx-auto mb-12">
-                <span className="text-stone-500 font-semibold text-sm tracking-widest uppercase block mb-2">
-                  ✦ Dynamic Rhythm & Devotion in Motion ✦
-                </span>
-                <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#9c7a46]">
-                  Featured Kuchipudi Showcase
-                </h2>
-                <div className="h-[1px] w-16 bg-[#c5a059] mx-auto my-3" />
-                <p className="text-stone-600 text-sm sm:text-base font-light leading-relaxed">
-                  Watch a magnificent performance illustrating the pristine alignment, rapid footwork synchronization, and expressive abhinaya that we cultivate at Natyakriya Academy.
-                </p>
-              </div>
 
-              <div className="max-w-4xl mx-auto">
-                <div className="bg-white border border-stone-200/80 p-4 sm:p-6 rounded-2xl shadow-xs">
-                  <div className="aspect-video w-full rounded-xl overflow-hidden bg-stone-900 shadow-inner relative border border-stone-200">
-                    <iframe
-                      src="https://www.youtube.com/embed/Z0oYpAs_ZgU"
-                      title="Natyakriya Academy Classical Kuchipudi Dance Recital"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full border-0"
-                    />
-                  </div>
-                  <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-stone-650 gap-y-2 px-2">
-                    <span className="font-medium text-stone-800">Featured Recital: Tillana in Raga Hindolam (Adi Tala)</span>
-                    <span className="font-mono text-[#9c7a46] font-bold">Duration: 08 mins • Performed Live</span>
-                  </div>
-                </div>
-              </div>
-            </section>
 
             {/* Quick Guru Welcome Preview block */}
             <section className="bg-[#faf9f6] border-y border-stone-200/60 py-16">
