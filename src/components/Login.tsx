@@ -5,6 +5,8 @@
 
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, Landmark, Sparkles, ArrowRight, User, Mail, Phone, UserCheck, KeyRound } from 'lucide-react';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface LoginProps {
   onLoginSuccess: () => void;
@@ -64,7 +66,7 @@ export default function Login({ onLoginSuccess, onStudentLoginSuccess }: LoginPr
     }, 800);
   };
 
-  const handleStudentSubmit = (e: React.FormEvent) => {
+  const handleStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
@@ -77,48 +79,44 @@ export default function Login({ onLoginSuccess, onStudentLoginSuccess }: LoginPr
 
       setIsSubmitting(true);
 
-      setTimeout(() => {
-        try {
-          const rawStudents = localStorage.getItem('kuchipudi_students') || '[]';
-          const students = JSON.parse(rawStudents);
+      try {
+        const studentDocRef = doc(db, 'students', email.toLowerCase().trim());
+        const docSnap = await getDoc(studentDocRef);
 
-          // Check if email already exists
-          const exists = students.find((s: any) => s.email.toLowerCase() === email.toLowerCase());
-          if (exists) {
-            setError('This email is already registered. Please log in.');
-            setIsSubmitting(false);
-            return;
-          }
-
-          const newStudent = {
-            id: `student-${Date.now()}`,
-            name: name.trim(),
-            email: email.trim(),
-            phone: phone.trim(),
-            password: password, // Simple local-only storage password
-            joinedDate: new Date().toLocaleDateString()
-          };
-
-          students.push(newStudent);
-          localStorage.setItem('kuchipudi_students', JSON.stringify(students));
-          setSuccess('Account created successfully! Logging you in...');
-
-          setTimeout(() => {
-            onStudentLoginSuccess({
-              id: newStudent.id,
-              name: newStudent.name,
-              email: newStudent.email,
-              phone: newStudent.phone
-            });
-            resetFields();
-            setIsSubmitting(false);
-          }, 1000);
-
-        } catch (err) {
-          setError('Failed to create account. Please try again.');
+        if (docSnap.exists()) {
+          setError('This email is already registered. Please log in.');
           setIsSubmitting(false);
+          return;
         }
-      }, 1000);
+
+        const newStudent = {
+          id: `student-${Date.now()}`,
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          password: password, // Simple local-only storage password
+          joinedDate: new Date().toLocaleDateString()
+        };
+
+        await setDoc(studentDocRef, newStudent);
+        setSuccess('Account created successfully! Logging you in...');
+
+        setTimeout(() => {
+          onStudentLoginSuccess({
+            id: newStudent.id,
+            name: newStudent.name,
+            email: newStudent.email,
+            phone: newStudent.phone
+          });
+          resetFields();
+          setIsSubmitting(false);
+        }, 1000);
+
+      } catch (err) {
+        console.error("Firestore student registration error:", err);
+        setError('Failed to create account. Please try again.');
+        setIsSubmitting(false);
+      }
 
     } else {
       // Student login
@@ -127,39 +125,41 @@ export default function Login({ onLoginSuccess, onStudentLoginSuccess }: LoginPr
 
       setIsSubmitting(true);
 
-      setTimeout(() => {
-        try {
-          const rawStudents = localStorage.getItem('kuchipudi_students') || '[]';
-          const students = JSON.parse(rawStudents);
+      try {
+        const studentDocRef = doc(db, 'students', email.toLowerCase().trim());
+        const docSnap = await getDoc(studentDocRef);
 
-          const student = students.find(
-            (s: any) => s.email.toLowerCase() === email.toLowerCase() && s.password === password
-          );
-
-          if (!student) {
-            setError('Invalid email address or password. Please try again.');
-            setIsSubmitting(false);
-            return;
-          }
-
-          setSuccess(`Welcome back, ${student.name}!`);
-
-          setTimeout(() => {
-            onStudentLoginSuccess({
-              id: student.id,
-              name: student.name,
-              email: student.email,
-              phone: student.phone
-            });
-            resetFields();
-            setIsSubmitting(false);
-          }, 1000);
-
-        } catch (err) {
-          setError('Login failed. Please try again.');
+        if (!docSnap.exists()) {
+          setError('Invalid email address or password. Please try again.');
           setIsSubmitting(false);
+          return;
         }
-      }, 1000);
+
+        const studentData = docSnap.data();
+        if (studentData.password !== password) {
+          setError('Invalid email address or password. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        setSuccess(`Welcome back, ${studentData.name}!`);
+
+        setTimeout(() => {
+          onStudentLoginSuccess({
+            id: studentData.id,
+            name: studentData.name,
+            email: studentData.email,
+            phone: studentData.phone
+          });
+          resetFields();
+          setIsSubmitting(false);
+        }, 1000);
+
+      } catch (err) {
+        console.error("Firestore student login error:", err);
+        setError('Login failed. Please try again.');
+        setIsSubmitting(false);
+      }
     }
   };
 
